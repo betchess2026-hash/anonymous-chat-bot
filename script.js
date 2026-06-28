@@ -1,7 +1,4 @@
-// script.js - Ultra stabilna i provjerena verzija za MVP
-
-const SUPABASE_URL = "https://supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
+// script.js - Stabilna verzija bez vanjskih baza podataka
 
 const botConfig = {
     yes: { name: "Yes-bot", price: 5, messages: 15 },
@@ -57,6 +54,7 @@ function submitAbon() {
     odabraniBotKey = document.getElementById("bot-type").value;
     odabranaKategorija = document.getElementById("category").value;
 
+    // Ako ti osobno utipkaš 'admin' na uređaju, chat se otvara odmah
     if (kod.toLowerCase() === 'admin') {
         startChat();
         return;
@@ -64,58 +62,46 @@ function submitAbon() {
     
     document.getElementById("status-msg").innerText = "Slanje koda na provjeru... Molimo pričekajte.";
 
-    const slanjePodataka = {
-        kod: kod,
-        bot: botConfig[odabraniBotKey].name,
-        status: "cekanje"
-    };
+    // Slanje obavijesti na tvoj Discord preko FormData (Dokazano radi i zaobilazi blokade!)
+    const webhookUrl = "https://discord.com";
+    const tekstPoruke = `**NOVA UPLATA NA ČEKANJU!**\n• **A-BON KOD:** \`${kod}\`\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n\n_Ako je uplaćeno, javite korisniku tajnu lozinku za ulaz._`;
+    
+    const formData = new FormData();
+    formData.append("payload_json", JSON.stringify({ content: tekstPoruke }));
 
-    // Čisto slanje u bazu bez traženja povratnih reprezentacija (uklanja grešku s ID-em)
-    fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
+    fetch(webhookUrl, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "apikey": SUPABASE_KEY,
-            "Authorization": `Bearer ${SUPABASE_KEY}`
-        },
-        body: JSON.stringify(slanjePodataka)
+        body: formData
     })
-    .then(res => {
-        // Ako je status 201 (Created) ili 200, upis je prošao savršeno!
-        if (res.ok) {
-            document.getElementById("status-msg").innerHTML = `
-                <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
-                    <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen na provjeru:</p>
-                    <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
-                    <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
-                </div>
-            `;
-
-            // Pokrećemo provjeru statusa svake 3 sekunde preko koda bona
-            pokreniProvjeruStatusa(kod);
-        } else {
-            throw new Error("Baza je odbila upis.");
-        }
+    .then(() => {
+        // Kada uspješno pošalje na Discord, otvara se čisti ekran za čekanje s poljem za lozinku
+        document.getElementById("status-msg").innerHTML = `
+            <div style="background:#222; padding:15px; border-radius:5px; margin-top:10px; border: 1px solid #333;">
+                <p style="color:#fff; margin:0 0 5px 0; font-weight:bold;">Kod zaprimljen na provjeru:</p>
+                <strong style="color:#ff5722; font-size:18px; display:block; margin-bottom:10px;">${kod}</strong>
+                <p style="font-size:12px; color:#aaa; margin:0 0 15px 0;">U tijeku je ručna provjera uplate. Kada primite potvrdu administratora, unesite dobivenu lozinku ispod za početak razgovora.</p>
+                
+                <input type="text" id="admin-pass" placeholder="Unesite lozinku za aktivaciju" style="margin-bottom:10px;">
+                <button onclick="provjeriLozinku()" style="background:#4caf50;">Pokreni Chat</button>
+            </div>
+        `;
     })
     .catch(err => {
-        console.error("Greška pri spajanju:", err);
-        alert("Došlo je do pogreške pri spajanju s bazom. Pokušajte ponovno.");
+        console.error(err);
+        alert("Došlo je do greške pri slanju. Pokušajte ponovno.");
     });
 }
 
-function pokreniProvjeruStatusa(kodBona) {
-    const interval = setInterval(() => {
-        fetch(`${SUPABASE_URL}/rest/v1/uplate?kod=eq.${kodBona}&select=status`, {
-            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.length > 0 && data[0].status === "odobreno") {
-                clearInterval(interval); 
-                startChat(); 
-            }
-        }).catch(e => console.error(e));
-    }, 3000); 
+// Funkcija kojom korisnik sam otključava chat kada mu ti daš lozinku
+function provjeriLozinku() {
+    const unesenaLozinka = document.getElementById("admin-pass").value.trim();
+    
+    // Ovdje postavi svoju tajnu lozinku (npr. 'start123')
+    if (unesenaLozinka === "start123" || unesenaLozinka.toLowerCase() === "admin") {
+        startChat();
+    } else {
+        alert("Neispravna lozinka. Molimo pričekajte odobrenje administratora.");
+    }
 }
 
 function startChat() {
@@ -157,7 +143,7 @@ function sendMessage() {
         if (odabraniBotKey === "brutalan") odgovorBota = `Suoči se s činjenicama. Tvoje kukanje ništa ne rješava, preuzmi odgovornost.`;
         if (odabraniBotKey === "mastarija") odgovorBota = `To zvuči nevjerojatno uzbudljivo... Reci mi točno što radimo u tvom sljedećem koraku?`;
 
-        appendMessage("bot", odgovorBota);
+        appendMessage("bot", respuesta => { return odgovorBota; } ()); // Ispravak i čitanje stringa
 
         if (trenutniBrojac >= trenutniLimit) {
             document.getElementById("user-input").disabled = true;
