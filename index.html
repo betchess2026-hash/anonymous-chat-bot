@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonimna Ispovjedaonica</title>
+    <!-- Poveznica s tvojom style.css datotekom -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <h2>Anonimni Bot MVP</h2>
+    <div class="subtitle">100% anonimno • Bez registracije • Podaci se ne spremaju</div>
+
+    <!-- EKRAN 1: Izbor bota, Pravila i unos A-bona -->
+    <div id="setup-screen">
+        <div class="rules-box">
+            <strong>⚠️ PRAVILA KORIŠTENJA & UPUTE:</strong>
+            <ul>
+                <li>Odaberite kategoriju i tip bota koji Vam odgovara.</li>
+                <li>Uplatite navedeni iznos putem 16-znamenkastog <strong>A-bona</strong>.</li>
+                <li><strong>Zatvaranjem ili osvježavanjem prozora sesija se trajno briše.</strong></li>
+                <li>Nepotrošene poruke se poništavaju nakon zatvaranja i povrat novca nije moguć.</li>
+                <li>Iskoristite svoje poruke do kraja dokle god je prozorčić aktivan.</li>
+            </ul>
+        </div>
+
+        <label for="category">1. Odaberite kategoriju:</label>
+        <select id="category" onchange="updateBotOptions()">
+            <option value="posao">Posao</option>
+            <option value="ljubav">Ljubav</option>
+            <option value="zdravlje">Zdravlje</option>
+            <option value="frustracije">Svakodnevne frustracije</option>
+            <option value="seks">Seks (Ekskluzivna zona 18+)</option>
+        </select>
+
+        <label for="bot-type">2. Odaberite tip bota:</label>
+        <select id="bot-type" onchange="updatePriceInfo()">
+            <!-- Dinamički se puni putem JavaScripta -->
+        </select>
+
+        <div id="price-info" style="font-weight:bold; color:#ffb300; text-align:center; margin: 15px 0;"></div>
+
+        <label for="abon-code">3. Unesite 16-znamenkasti kod A-bona:</label>
+        <input type="text" id="abon-code" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19">
+
+        <button onclick="submitAbon()">Aktiviraj Bota</button>
+        <div id="status-msg"></div>
+    </div>
+
+    <!-- EKRAN 2: Chat sučelje (Skriveno dok se kod ne odobri) -->
+    <div id="chat-screen" class="hidden">
+        <div id="chat-box"></div>
+        <div id="counter">Poruke bota: <span id="current-count">0</span> / <span id="max-count">0</span></div>
+        <input type="text" id="user-input" placeholder="Napišite nešto..." onkeypress="handleKeyPress(event)">
+        <button onclick="sendMessage()">Pošalji</button>
+    </div>
+</div>
+
+<!-- Poveznica s logikom bota koju ćemo kreirati u idućem koraku -->
+<script src="script.js"></script>
+
+</body>
+</html>
