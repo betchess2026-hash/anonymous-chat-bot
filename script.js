@@ -1,4 +1,4 @@
-// script.js - Očišćeni linkovi bez teksta repozitorija
+// script.js - Ultra stabilna i provjerena verzija za MVP
 
 const SUPABASE_URL = "https://supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
@@ -70,7 +70,7 @@ function submitAbon() {
         status: "cekanje"
     };
 
-    // Slanje u bazu (Supabase)
+    // Čisto slanje u bazu bez traženja povratnih reprezentacija (uklanja grešku s ID-em)
     fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
         method: "POST",
         headers: {
@@ -80,17 +80,22 @@ function submitAbon() {
         },
         body: JSON.stringify(slanjePodataka)
     })
-    .then(() => {
-        document.getElementById("status-msg").innerHTML = `
-            <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
-                <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen:</p>
-                <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
-                <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
-            </div>
-        `;
+    .then(res => {
+        // Ako je status 201 (Created) ili 200, upis je prošao savršeno!
+        if (res.ok) {
+            document.getElementById("status-msg").innerHTML = `
+                <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
+                    <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen na provjeru:</p>
+                    <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
+                    <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
+                </div>
+            `;
 
-        // Pokrećemo provjeru statusa svake 3 sekunde preko koda bona
-        pokreniProvjeruStatusa(kod);
+            // Pokrećemo provjeru statusa svake 3 sekunde preko koda bona
+            pokreniProvjeruStatusa(kod);
+        } else {
+            throw new Error("Baza je odbila upis.");
+        }
     })
     .catch(err => {
         console.error("Greška pri spajanju:", err);
@@ -105,7 +110,7 @@ function pokreniProvjeruStatusa(kodBona) {
         })
         .then(res => res.json())
         .then(data => {
-            if (data && data.length > 0 && data.status === "odobreno") {
+            if (data && data.length > 0 && data[0].status === "odobreno") {
                 clearInterval(interval); 
                 startChat(); 
             }
