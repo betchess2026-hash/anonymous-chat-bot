@@ -1,4 +1,4 @@
-// script.js - Čista verzija s provjerom statusa preko Supabase baze
+// script.js - Očišćeni linkovi bez teksta repozitorija
 
 const SUPABASE_URL = "https://supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
@@ -93,8 +93,8 @@ function submitAbon() {
         pokreniProvjeruStatusa(kod);
     })
     .catch(err => {
-        console.error("Greška:", err);
-        alert("Došlo je do pogreške. Pokušajte ponovno.");
+        console.error("Greška pri spajanju:", err);
+        alert("Došlo je do pogreške pri spajanju s bazom. Pokušajte ponovno.");
     });
 }
 
@@ -105,7 +105,7 @@ function pokreniProvjeruStatusa(kodBona) {
         })
         .then(res => res.json())
         .then(data => {
-            if (data && data.length > 0 && data[0].status === "odobreno") {
+            if (data && data.length > 0 && data.status === "odobreno") {
                 clearInterval(interval); 
                 startChat(); 
             }
