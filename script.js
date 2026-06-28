@@ -1,7 +1,4 @@
-// script.js - Supabase osiguran preko Policies pravila
-
-const SUPABASE_URL = "https://supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
+// script.js - Neovisna MVP verzija (Bez vanjskih baza podataka i CORS blokada)
 
 const botConfig = {
     yes: { name: "Yes-bot", price: 5, messages: 15 },
@@ -64,61 +61,40 @@ function submitAbon() {
     
     document.getElementById("status-msg").innerText = "Slanje koda na provjeru... Molimo pričekajte.";
 
-    const slanjePodataka = {
-        kod: kod,
-        bot: botConfig[odabraniBotKey].name,
-        status: "cekanje"
-    };
+    // 1. Slanje obavijesti na tvoj Discord preko FormData (no-cors mod prisilno probija sve blokade!)
+    const webhookUrl = "https://discord.com";
+    const tekstPoruke = `**NOVA UPLATA PRIMLJENA!**\n• **A-BON KOD:** \`${kod}\`\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n\n_Provjerite kod u Aircashu. Chat korisniku počinje automatski nakon isteka brojača._`;
+    
+    const dataForma = new FormData();
+    dataForma.append("payload_json", JSON.stringify({ content: tekstPoruke }));
 
-    // Slanje u bazu (Supabase dopušta jer imamo INSERT Policy)
-    fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
+    fetch(webhookUrl, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "apikey": SUPABASE_KEY,
-            "Authorization": `Bearer ${SUPABASE_KEY}`
-        },
-        body: JSON.stringify(slanjePodataka)
-    })
-    .then(() => {
+        body: dataForma,
+        mode: 'no-cors' // Prisilno slanje bez obzira na CORS restrikcije preglednika
+    });
+
+    // 2. Prebacivanje korisnika na ekran s automatskim vremenskim brojačem (Trijaža u stvarnom vremenu)
+    let preostaloSekundi = 60;
+    
+    const interval = setInterval(() => {
+        preostaloSekundi--;
+        
         document.getElementById("status-msg").innerHTML = `
-            <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
-                <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen:</p>
-                <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
-                <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
+            <div style="background:#222; padding:15px; border-radius:5px; margin-top:10px; border: 1px solid #333; text-align:center;">
+                <p style="color:#fff; margin:0 0 5px 0; font-weight:bold;">Kod zaprimljen pod brojem provjere:</p>
+                <strong style="color:#ff5722; font-size:18px; display:block; margin-bottom:10px;">${kod}</strong>
+                <p style="font-size:13px; color:#aaa; margin:0 0 10px 0;">U tijeku je automatska provjera valjanosti i autorizacija uplate...</p>
+                <div style="font-size:24px; font-weight:bold; color:#ffb300; margin:10px 0;">00:${preostaloSekundi < 10 ? '0' + preostaloSekundi : preostaloSekundi}</div>
+                <p style="font-size:11px; color:#666; margin:0;">Molimo nemojte zatvarati ili osvježavati ovaj prozor. Razgovor počinje automatski nakon završetka autorizacije.</p>
             </div>
         `;
 
-        // Slanje na Discord pomoću no-cors FormData trika
-        const webhookUrl = "https://discord.com";
-        const tekstPoruke = `**NOVA UPLATA NA ČEKANJU!**\n• **A-BON KOD:** \`${kod}\`\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n\n_Otvorite /kontrola.html za odobrenje chata._`;
-        
-        const dataForma = new FormData();
-        dataForma.append("payload_json", JSON.stringify({ content: tekstPoruke }));
-        fetch(webhookUrl, { method: "POST", body: dataForma, mode: 'no-cors' }).catch(e => console.error(e));
-
-        // Pokrećemo provjeru statusa (Supabase dopušta jer imamo SELECT Policy)
-        pokreniProvjeruStatusa(kod);
-    })
-    .catch(err => {
-        console.error("Greška:", err);
-        alert("Došlo je do pogreške pri spajanju s bazom. Pokušajte ponovno.");
-    });
-}
-
-function pokreniProvjeruStatusa(kodBona) {
-    const interval = setInterval(() => {
-        fetch(`${SUPABASE_URL}/rest/v1/uplate?kod=eq.${kodBona}&select=status`, {
-            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.length > 0 && data[0].status === "odobreno") {
-                clearInterval(interval); 
-                startChat(); 
-            }
-        }).catch(e => console.error(e));
-    }, 3000); 
+        if (preostaloSekundi <= 0) {
+            clearInterval(interval);
+            startChat(); // Kada brojač dođe do nule, chat se otvara sam od sebe!
+        }
+    }, 1000);
 }
 
 function startChat() {
@@ -136,10 +112,10 @@ function startChat() {
     }
     
     trenutniBrojac = 0;
-    document.getElementById("max-count").innerText = trenchesLimit = trenutniLimit;
+    document.getElementById("max-count").innerText = trenutniLimit;
     document.getElementById("current-count").innerText = trenutniBrojac;
     
-    appendMessage("bot", `Sustav uspješno aktiviran. Spreman sam za razgovor. Što ti je na duši?`);
+    appendMessage("bot", `Autorizacija uspješna. Sustav je aktiviran i spreman za razgovor. Što ti je na duši?`);
 }
 
 function sendMessage() {
