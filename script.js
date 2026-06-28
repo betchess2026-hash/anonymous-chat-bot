@@ -1,4 +1,7 @@
-// script.js - Logika sustava s ugrađenim slanjem koda na Discord
+// script.js - Supabase Realtime integracija s automatskim čekanjem odobrenja
+
+const SUPABASE_URL = "https://tkgzrtascihkvawwieqd.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
 
 const botConfig = {
     yes: { name: "Yes-bot", price: 5, messages: 15 },
@@ -13,6 +16,7 @@ let trenutniLimit = 0;
 let trenutniBrojac = 0;
 let odabraniBotKey = "";
 let odabranaKategorija = "";
+let uplatniId = null;
 
 function updateBotOptions() {
     const cat = document.getElementById("category").value;
@@ -54,40 +58,76 @@ function submitAbon() {
     odabraniBotKey = document.getElementById("bot-type").value;
     odabranaKategorija = document.getElementById("category").value;
 
-    // SKRIVENI ADMIN MOD: Ako ti osobno utipkaš 'admin', chat kreće odmah bez slanja na Discord
     if (kod.toLowerCase() === 'admin') {
         startChat();
         return;
     }
     
-    document.getElementById("status-msg").innerText = "Provjera koda u tijeku... Molimo pričekajte.";
+    document.getElementById("status-msg").innerText = "Slanje koda na provjeru... Molimo pričekajte.";
 
-    // TVOJ DISCORD WEBHOOK ZA SLANJE OBAVIJESTI NA MOBITEL
-    const webhookUrl = "https://discord.com/api/webhooks/1520867051055616050/g9yaxU4PCeJOOWqpnbvI4aFopwahOnvTgPE9ngZoMofGbGFpUwYqwd97HzwI-6g5GMjE";
-    
-    const porukaZaDiscord = {
-        content: `**NOVA UPLATA NA ČEKANJU!**\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n• **A-BON KOD:** \`${kod}\`\n\n_Nakon provjere koda u Aircashu, u polje na stranici upišite riječ 'admin' za odobrenje chata._`
-    };
-
-    // Slanje podataka na tvoj Discord kanal
-    fetch(webhookUrl, {
+    // 1. Upisivanje uplate u Supabase bazu podataka
+    fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(porukaZaDiscord)
+        headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Prefer": "return=representation"
+        },
+        body: JSON.stringify({
+            kod: kod,
+            bot: botConfig[odabraniBotKey].name,
+            status: "cekanje"
+        })
     })
-    .then(() => {
-        document.getElementById("status-msg").innerHTML = `
-            <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
-                <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen:</p>
-                <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
-                <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
-            </div>
-        `;
+    .then(res => res.json())
+    .then(data => {
+        if(data && data.length > 0) {
+            uplatniId = data[0].id; // Spremamo ID ove uplate
+            
+            // Prikazujemo korisniku obavijest da čeka na ekranu
+            document.getElementById("status-msg").innerHTML = `
+                <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
+                    <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen pod brojem #${uplatniId}:</p>
+                    <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
+                    <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
+                </div>
+            `;
+
+            // 2. Slanje obavijesti s brojem na tvoj Discord Webhook
+            posaljiNaDiscord(kod, uplatniId);
+
+            // 3. Pokretanje slušača (provjera svakih 3 sekunde je li status postao 'odobreno')
+            pokreniProvjeruStatusa();
+        }
     })
     .catch(err => {
-        console.error("Greška pri slanju:", err);
-        alert("Došlo je do greške. Pokušajte ponovno.");
+        console.error(err);
+        alert("Greška pri spajanju s bazom. Pokušajte ponovno.");
     });
+}
+
+function posaljiNaDiscord(kod, id) {
+    const webhookUrl = "https://discord.com";
+    const poruka = {
+        content: `**NOVA UPLATA NA ČEKANJU!**\n• **Broj uplate:** #${id}\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n• **A-BON KOD:** \`${kod}\`\n\n_Otvorite svoju kontrolnu ploču za odobrenje ove uplate._`
+    };
+    fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(poruka) });
+}
+
+function pokreniProvjeruStatusa() {
+    const interval = setInterval(() => {
+        fetch(`${SUPABASE_URL}/rest/v1/uplate?id=eq.${uplatniId}&select=status`, {
+            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data && data.length > 0 && data[0].status === "odobreno") {
+                clearInterval(interval); // Zaustavi provjeravanje
+                startChat(); // Otvori chat korisniku!
+            }
+        });
+    }, 3000); // Provjerava status svake 3 sekunde
 }
 
 function startChat() {
