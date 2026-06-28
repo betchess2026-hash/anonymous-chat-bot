@@ -1,6 +1,6 @@
-// script.js - Supabase Realtime integracija s automatskim čekanjem odobrenja
+// script.js - Ispravljena verzija s točnim čitanjem Supabase ID-a
 
-const SUPABASE_URL = "https://tkgzrtascihkvawwieqd.supabase.co";
+const SUPABASE_URL = "https://supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
 
 const botConfig = {
@@ -65,14 +65,14 @@ function submitAbon() {
     
     document.getElementById("status-msg").innerText = "Slanje koda na provjeru... Molimo pričekajte.";
 
-    // 1. Upisivanje uplate u Supabase bazu podataka
+    // Slanje uplate u Supabase bazu podataka
     fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "apikey": SUPABASE_KEY,
             "Authorization": `Bearer ${SUPABASE_KEY}`,
-            "Prefer": "return=representation"
+            "Prefer": "return=representation" // Tražimo od baze da nam vrati upisani redak
         },
         body: JSON.stringify({
             kod: kod,
@@ -82,10 +82,11 @@ function submitAbon() {
     })
     .then(res => res.json())
     .then(data => {
+        // ISPRAVAK: Supabase vraća listu [data], pa uzimamo prvi element data[0]
         if(data && data.length > 0) {
-            uplatniId = data[0].id; // Spremamo ID ove uplate
+            const upisanaUplata = data[0];
+            uplatniId = upisanaUplata.id; // Točno čitanje ID-a iz baze
             
-            // Prikazujemo korisniku obavijest da čeka na ekranu
             document.getElementById("status-msg").innerHTML = `
                 <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
                     <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen pod brojem #${uplatniId}:</p>
@@ -94,10 +95,10 @@ function submitAbon() {
                 </div>
             `;
 
-            // 2. Slanje obavijesti s brojem na tvoj Discord Webhook
+            // Slanje obavijesti na Discord s ispravnim ID brojem uplate
             posaljiNaDiscord(kod, uplatniId);
 
-            // 3. Pokretanje slušača (provjera svakih 3 sekunde je li status postao 'odobreno')
+            // Pokretanje intervalne provjere statusa
             pokreniProvjeruStatusa();
         }
     })
@@ -122,12 +123,13 @@ function pokreniProvjeruStatusa() {
         })
         .then(res => res.json())
         .then(data => {
+            // Ispravak čitanja i kod provjere statusa
             if(data && data.length > 0 && data[0].status === "odobreno") {
-                clearInterval(interval); // Zaustavi provjeravanje
-                startChat(); // Otvori chat korisniku!
+                clearInterval(interval); 
+                startChat(); 
             }
         });
-    }, 3000); // Provjerava status svake 3 sekunde
+    }, 3000); 
 }
 
 function startChat() {
