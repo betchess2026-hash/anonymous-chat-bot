@@ -1,4 +1,4 @@
-// script.js - Konačna verzija s ugrađenim proxy tunelom za Discord bez CORS blokade
+// script.js - Supabase osiguran preko Policies pravila
 
 const SUPABASE_URL = "https://supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
@@ -70,7 +70,7 @@ function submitAbon() {
         status: "cekanje"
     };
 
-    // 1. Upisivanje u Supabase bazu podataka
+    // Slanje u bazu (Supabase dopušta jer imamo INSERT Policy)
     fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
         method: "POST",
         headers: {
@@ -89,32 +89,20 @@ function submitAbon() {
             </div>
         `;
 
-        // 2. Pokrećemo slanje na Discord preko AllOrigins proxy tunela koji razbija CORS blokadu!
+        // Slanje na Discord pomoću no-cors FormData trika
         const webhookUrl = "https://discord.com";
         const tekstPoruke = `**NOVA UPLATA NA ČEKANJU!**\n• **A-BON KOD:** \`${kod}\`\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n\n_Otvorite /kontrola.html za odobrenje chata._`;
         
-        // Pakiramo zahtjev unutar proxy URL-a
-        const proxyUrl = `https://allorigins.win{encodeURIComponent(webhookUrl)}`;
+        const dataForma = new FormData();
+        dataForma.append("payload_json", JSON.stringify({ content: tekstPoruke }));
+        fetch(webhookUrl, { method: "POST", body: dataForma, mode: 'no-cors' }).catch(e => console.error(e));
 
-        // Budući da allorigins radi GET upite za prosljeđivanje, 
-        // najpouzdaniji način bez CORS-a je izravno slanje preko ugrađenog Discord mehanizma parametara u URL-u:
-        const urlSParametrom = `${webhookUrl}?content=${encodeURIComponent(tekstPoruke)}`;
-        
-        fetch(urlSParametrom, { method: "POST" })
-        .catch(() => {
-            // Ako Discord i dalje gunđa na frontend POST, trik s FormData ostaje rezervna opcija
-            const dataForma = new FormData();
-            dataForma.append("payload_json", JSON.stringify({ content: tekstPoruke }));
-            fetch(webhookUrl, { method: "POST", body: dataForma, mode: 'no-cors' }); 
-            // 'no-cors' prisiljava preglednik da pošalje poruku bez obzira na Discordov odgovor!
-        });
-
-        // 3. Pokrećemo provjeru statusa u pozadini
+        // Pokrećemo provjeru statusa (Supabase dopušta jer imamo SELECT Policy)
         pokreniProvjeruStatusa(kod);
     })
     .catch(err => {
         console.error("Greška:", err);
-        alert("Došlo je do pogreške. Pokušajte ponovno.");
+        alert("Došlo je do pogreške pri spajanju s bazom. Pokušajte ponovno.");
     });
 }
 
@@ -125,7 +113,7 @@ function pokreniProvjeruStatusa(kodBona) {
         })
         .then(res => res.json())
         .then(data => {
-            if (data && data.length > 0 && data.status === "odobreno") {
+            if (data && data.length > 0 && data[0].status === "odobreno") {
                 clearInterval(interval); 
                 startChat(); 
             }
@@ -148,7 +136,7 @@ function startChat() {
     }
     
     trenutniBrojac = 0;
-    document.getElementById("max-count").innerText = trenutniLimit;
+    document.getElementById("max-count").innerText = trenchesLimit = trenutniLimit;
     document.getElementById("current-count").innerText = trenutniBrojac;
     
     appendMessage("bot", `Sustav uspješno aktiviran. Spreman sam za razgovor. Što ti je na duši?`);
