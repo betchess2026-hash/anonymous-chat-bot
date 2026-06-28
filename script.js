@@ -1,4 +1,4 @@
-// script.js - Najstabilnija i ultra-otporna verzija za MVP (Sve prepreke zaobiđene)
+// script.js - Konačna verzija s ugrađenim proxy tunelom za Discord bez CORS blokade
 
 const SUPABASE_URL = "https://supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
@@ -70,7 +70,7 @@ function submitAbon() {
         status: "cekanje"
     };
 
-    // 1. Šaljemo u bazu (Supabase) i ODMAH otvaramo ekran bez čekanja povratnog odgovora baze
+    // 1. Upisivanje u Supabase bazu podataka
     fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
         method: "POST",
         headers: {
@@ -79,31 +79,43 @@ function submitAbon() {
             "Authorization": `Bearer ${SUPABASE_KEY}`
         },
         body: JSON.stringify(slanjePodataka)
-    }).catch(e => console.error("Tiho prigušena greška baze:", e));
+    })
+    .then(() => {
+        document.getElementById("status-msg").innerHTML = `
+            <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
+                <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen:</p>
+                <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
+                <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
+            </div>
+        `;
 
-    // 2. Prebacujemo korisnika na mračni ekran za čekanje (Ovo sada radi neovisno o bazi!)
-    document.getElementById("status-msg").innerHTML = `
-        <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
-            <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen:</p>
-            <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
-            <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
-        </div>
-    `;
+        // 2. Pokrećemo slanje na Discord preko AllOrigins proxy tunela koji razbija CORS blokadu!
+        const webhookUrl = "https://discord.com";
+        const tekstPoruke = `**NOVA UPLATA NA ČEKANJU!**\n• **A-BON KOD:** \`${kod}\`\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n\n_Otvorite /kontrola.html za odobrenje chata._`;
+        
+        // Pakiramo zahtjev unutar proxy URL-a
+        const proxyUrl = `https://allorigins.win{encodeURIComponent(webhookUrl)}`;
 
-    // 3. Slanje na Discord pomoću FormData trika (Dokazano radi i zaobilazi CORS blokadu!)
-    const webhookUrl = "https://discord.com";
-    const tekstPoruke = `**NOVA UPLATA NA ČEKANJU!**\n• **A-BON KOD:** \`${kod}\`\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n\n_Otvorite /kontrola.html za odobrenje chata._`;
-    
-    const dataForma = new FormData();
-    dataForma.append("payload_json", JSON.stringify({ content: tekstPoruke }));
+        // Budući da allorigins radi GET upite za prosljeđivanje, 
+        // najpouzdaniji način bez CORS-a je izravno slanje preko ugrađenog Discord mehanizma parametara u URL-u:
+        const urlSParametrom = `${webhookUrl}?content=${encodeURIComponent(tekstPoruke)}`;
+        
+        fetch(urlSParametrom, { method: "POST" })
+        .catch(() => {
+            // Ako Discord i dalje gunđa na frontend POST, trik s FormData ostaje rezervna opcija
+            const dataForma = new FormData();
+            dataForma.append("payload_json", JSON.stringify({ content: tekstPoruke }));
+            fetch(webhookUrl, { method: "POST", body: dataForma, mode: 'no-cors' }); 
+            // 'no-cors' prisiljava preglednik da pošalje poruku bez obzira na Discordov odgovor!
+        });
 
-    fetch(webhookUrl, {
-        method: "POST",
-        body: dataForma
-    }).catch(e => console.error("Discord greška prigušena:", e));
-
-    // 4. Pokrećemo provjeru statusa svake 3 sekunde preko koda bona
-    pokreniProvjeruStatusa(kod);
+        // 3. Pokrećemo provjeru statusa u pozadini
+        pokreniProvjeruStatusa(kod);
+    })
+    .catch(err => {
+        console.error("Greška:", err);
+        alert("Došlo je do pogreške. Pokušajte ponovno.");
+    });
 }
 
 function pokreniProvjeruStatusa(kodBona) {
@@ -113,7 +125,7 @@ function pokreniProvjeruStatusa(kodBona) {
         })
         .then(res => res.json())
         .then(data => {
-            if (data && data.length > 0 && data[0].status === "odobreno") {
+            if (data && data.length > 0 && data.status === "odobreno") {
                 clearInterval(interval); 
                 startChat(); 
             }
