@@ -1,0 +1,69 @@
+/* style.css - Vizualni izgled i mračni dizajn */
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+.container {
+    width: 100%;
+    max-width: 500px;
+    background: #1e1e1e;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    box-sizing: border-box;
+}
+h2 { text-align: center; color: #ff5722; margin-top: 0; margin-bottom: 5px; }
+.subtitle { font-size:12px; text-align:center; color:#888; margin-bottom: 15px; }
+label { display: block; margin: 10px 0 5px; font-weight: bold; }
+select, input, button {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    border: 1px solid #333;
+    background: #252525;
+    color: #fff;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+button {
+    background: #ff5722;
+    color: white;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+button:hover { background: #e64a19; }
+.hidden { display: none; }
+.rules-box {
+    background: #151515;
+    padding: 12px;
+    border-radius: 5px;
+    border-left: 4px solid #ff5722;
+    margin-bottom: 15px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.rules-box ul { margin: 5px 0 0 0; padding-left: 20px; }
+.rules-box li { margin-bottom: 4px; }
+#chat-box {
+    height: 300px;
+    border: 1px solid #333;
+    background: #1a1a1a;
+    padding: 10px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    border-radius: 5px;
+}
+.msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 5px; max-width: 85%; }
+.user { background: #2979ff; margin-left: auto; text-align: right; }
+.bot { background: #333; }
+#status-msg { text-align: center; color: #ffb300; font-style: italic; }
+#counter { text-align: right; font-size: 14px; color: #888; margin-top: -10px; margin-bottom: 10px; }
