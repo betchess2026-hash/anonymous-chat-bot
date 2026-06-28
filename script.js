@@ -1,4 +1,4 @@
-// script.js - Stabilna verzija bez vanjskih baza podataka
+// script.js - Stabilna i popravljena verzija s Discord slanjem i lozinkom
 
 const botConfig = {
     yes: { name: "Yes-bot", price: 5, messages: 15 },
@@ -54,7 +54,7 @@ function submitAbon() {
     odabraniBotKey = document.getElementById("bot-type").value;
     odabranaKategorija = document.getElementById("category").value;
 
-    // Ako ti osobno utipkaš 'admin' na uređaju, chat se otvara odmah
+    // Ako ti osobno utipkaš 'admin' na istom uređaju, chat se otvara odmah
     if (kod.toLowerCase() === 'admin') {
         startChat();
         return;
@@ -62,7 +62,7 @@ function submitAbon() {
     
     document.getElementById("status-msg").innerText = "Slanje koda na provjeru... Molimo pričekajte.";
 
-    // Slanje obavijesti na tvoj Discord preko FormData (Dokazano radi i zaobilazi blokade!)
+    // Slanje obavijesti na tvoj Discord preko FormData (zaobilazi CORS blokadu)
     const webhookUrl = "https://discord.com";
     const tekstPoruke = `**NOVA UPLATA NA ČEKANJU!**\n• **A-BON KOD:** \`${kod}\`\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n\n_Ako je uplaćeno, javite korisniku tajnu lozinku za ulaz._`;
     
@@ -74,7 +74,7 @@ function submitAbon() {
         body: formData
     })
     .then(() => {
-        // Kada uspješno pošalje na Discord, otvara se čisti ekran za čekanje s poljem za lozinku
+        // Kada uspješno pošalje na Discord, otvara se ekran za čekanje s poljem za lozinku
         document.getElementById("status-msg").innerHTML = `
             <div style="background:#222; padding:15px; border-radius:5px; margin-top:10px; border: 1px solid #333;">
                 <p style="color:#fff; margin:0 0 5px 0; font-weight:bold;">Kod zaprimljen na provjeru:</p>
@@ -92,11 +92,10 @@ function submitAbon() {
     });
 }
 
-// Funkcija kojom korisnik sam otključava chat kada mu ti daš lozinku
 function provjeriLozinku() {
     const unesenaLozinka = document.getElementById("admin-pass").value.trim();
     
-    // Ovdje postavi svoju tajnu lozinku (npr. 'start123')
+    // Tvoja tajna lozinka je 'start123' ili 'admin'
     if (unesenaLozinka === "start123" || unesenaLozinka.toLowerCase() === "admin") {
         startChat();
     } else {
@@ -143,7 +142,7 @@ function sendMessage() {
         if (odabraniBotKey === "brutalan") odgovorBota = `Suoči se s činjenicama. Tvoje kukanje ništa ne rješava, preuzmi odgovornost.`;
         if (odabraniBotKey === "mastarija") odgovorBota = `To zvuči nevjerojatno uzbudljivo... Reci mi točno što radimo u tvom sljedećem koraku?`;
 
-        appendMessage("bot", respuesta => { return odgovorBota; } ()); // Ispravak i čitanje stringa
+        appendMessage("bot", odgovorBota);
 
         if (trenutniBrojac >= trenutniLimit) {
             document.getElementById("user-input").disabled = true;
