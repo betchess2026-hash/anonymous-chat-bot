@@ -1,6 +1,5 @@
-// script.js - Logika sustava, brojanje poruka i progresivni jackpot
+// script.js - Logika sustava s ugrađenim slanjem koda na Discord
 
-// Konfiguracija cijena i osnovnih limita poruka bota
 const botConfig = {
     yes: { name: "Yes-bot", price: 5, messages: 15 },
     empatican: { name: "Empatičan", price: 10, messages: 15 },
@@ -9,14 +8,12 @@ const botConfig = {
     mastarija: { name: "Maštarija (18+)", price: 50, messages: 20 }
 };
 
-// Korištenje sessionStorage: ako zatvore tab ili osvježe stranicu, sve se resetira na nulu
 let sexBotUplate = parseInt(sessionStorage.getItem("sexBotUplate")) || 0; 
 let trenutniLimit = 0;
 let trenutniBrojac = 0;
 let odabraniBotKey = "";
 let odabranaKategorija = "";
 
-// Dinamičko ažuriranje opcija botova ovisno o odabranoj kategoriji
 function updateBotOptions() {
     const cat = document.getElementById("category").value;
     const botSelect = document.getElementById("bot-type");
@@ -35,13 +32,11 @@ function updateBotOptions() {
     updatePriceInfo();
 }
 
-// Ažuriranje teksta o cijeni i broju poruka (uključujući skriveni jackpot)
 function updatePriceInfo() {
     const botKey = document.getElementById("bot-type").value;
     const config = botConfig[botKey];
     let porukeTekst = config.messages;
     
-    // Prikaz progresivnog jackpota na ekranu za plaćanje ako nastavljaju unutar istog prozora
     if (botKey === "mastarija" && sexBotUplate > 0) {
         porukeTekst = config.messages + (sexBotUplate * 2);
     }
@@ -49,7 +44,6 @@ function updatePriceInfo() {
     document.getElementById("price-info").innerText = `Cijena: ${config.price} € za ${porukeTekst} poruka bota.`;
 }
 
-// Pokretanje procesa nakon što korisnik unese A-bon i klikne gumb
 function submitAbon() {
     const kod = document.getElementById("abon-code").value.trim();
     if(kod.length < 10) {
@@ -59,23 +53,49 @@ function submitAbon() {
 
     odabraniBotKey = document.getElementById("bot-type").value;
     odabranaKategorija = document.getElementById("category").value;
+
+    // SKRIVENI ADMIN MOD: Ako ti osobno utipkaš 'admin', chat kreće odmah bez slanja na Discord
+    if (kod.toLowerCase() === 'admin') {
+        startChat();
+        return;
+    }
     
     document.getElementById("status-msg").innerText = "Provjera koda u tijeku... Molimo pričekajte.";
+
+    // TVOJ DISCORD WEBHOOK ZA SLANJE OBAVIJESTI NA MOBITEL
+    const webhookUrl = "https://discord.com/api/webhooks/1520867051055616050/g9yaxU4PCeJOOWqpnbvI4aFopwahOnvTgPE9ngZoMofGbGFpUwYqwd97HzwI-6g5GMjE";
     
-    // MVP Simulacija tvog ručnog zelenog svjetla (3 sekunde čekanja)
-    setTimeout(() => {
-        startChat();
-    }, 3000);
+    const porukaZaDiscord = {
+        content: `**NOVA UPLATA NA ČEKANJU!**\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n• **A-BON KOD:** \`${kod}\`\n\n_Nakon provjere koda u Aircashu, u polje na stranici upišite riječ 'admin' za odobrenje chata._`
+    };
+
+    // Slanje podataka na tvoj Discord kanal
+    fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(porukaZaDiscord)
+    })
+    .then(() => {
+        document.getElementById("status-msg").innerHTML = `
+            <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
+                <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen:</p>
+                <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
+                <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
+            </div>
+        `;
+    })
+    .catch(err => {
+        console.error("Greška pri slanju:", err);
+        alert("Došlo je do greške. Pokušajte ponovno.");
+    });
 }
 
-// Otvaranje chat ekrana i postavljanje limita sesije
 function startChat() {
     document.getElementById("setup-screen").classList.add("hidden");
     document.getElementById("chat-screen").classList.remove("hidden");
     
     const config = botConfig[odabraniBotKey];
     
-    // Progresivni jackpot sustav (+2 poruke za svaku novu uzastopnu uplatu u istom prozoru)
     if (odabranaKategorija === "seks" && odabraniBotKey === "mastarija") {
         trenutniLimit = config.messages + (sexBotUplate * 2);
         sexBotUplate++; 
@@ -91,7 +111,6 @@ function startChat() {
     appendMessage("bot", `Sustav uspješno aktiviran. Spreman sam za razgovor. Što ti je na duši?`);
 }
 
-// Slanje korisničke poruke i simulacija odgovora bota
 function sendMessage() {
     const input = document.getElementById("user-input");
     const tekst = input.value.trim();
@@ -100,26 +119,22 @@ function sendMessage() {
     appendMessage("user", tekst);
     input.value = "";
 
-    // Simulacija odgovora umjetne inteligencije (OpenAI API)
     setTimeout(() => {
         trenutniBrojac++;
         document.getElementById("current-count").innerText = trenutniBrojac;
         
         let odgovorBota = "Slušam te. Nastavi...";
         
-        // Ponašanja botova ovisno o tvom odabiru
         if (odabraniBotKey === "yes") odgovorBota = `Apsolutno si u pravu! Potpuno se slažem s tobom, to što kažeš ima stopostotnog smisla.`;
         if (odabraniBotKey === "brutalan") odgovorBota = `Suoči se s činjenicama. Tvoje kukanje ništa ne rješava, preuzmi odgovornost.`;
         if (odabraniBotKey === "mastarija") odgovorBota = `To zvuči nevjerojatno uzbudljivo... Reci mi točno što radimo u tvom sljedećem koraku?`;
 
         appendMessage("bot", odgovorBota);
 
-        // Kada se dosegne limit poruka bota, chat se zaključava
         if (trenutniBrojac >= trenutniLimit) {
             document.getElementById("user-input").disabled = true;
             appendMessage("bot", "Vaša sesija je istekla. Za nastavak razgovora unesite novi A-bon.");
             
-            // Automatsko vraćanje na formu za plaćanje nakon 5 sekundi
             setTimeout(() => {
                 document.getElementById("chat-screen").classList.add("hidden");
                 document.getElementById("setup-screen").classList.remove("hidden");
@@ -133,7 +148,6 @@ function sendMessage() {
     }, 1000);
 }
 
-// Dodavanje poruka u vizualni prozor chata
 function appendMessage(sender, text) {
     const box = document.getElementById("chat-box");
     const msg = document.createElement("div");
@@ -143,10 +157,8 @@ function appendMessage(sender, text) {
     box.scrollTop = box.scrollHeight;
 }
 
-// Omogućavanje slanja poruke pritiskom na tipku Enter
 function handleKeyPress(e) {
     if (e.key === 'Enter') sendMessage();
 }
 
-// Pokretanje početnih opcija pri učitavanju stranice
 updateBotOptions();
