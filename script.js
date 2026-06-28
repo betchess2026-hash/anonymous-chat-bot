@@ -1,6 +1,6 @@
-// script.js - Stabilna verzija (Supabase baza + Discord bez CORS blokade)
+// script.js - Čista verzija s provjerom statusa preko Supabase baze
 
-const SUPABASE_URL = "https://tkgzrtascihkvawwieqd.supabase.co";
+const SUPABASE_URL = "https://supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
 
 const botConfig = {
@@ -16,7 +16,6 @@ let trenutniLimit = 0;
 let trenutniBrojac = 0;
 let odabraniBotKey = "";
 let odabranaKategorija = "";
-let uplatniId = null;
 
 function updateBotOptions() {
     const cat = document.getElementById("category").value;
@@ -71,7 +70,7 @@ function submitAbon() {
         status: "cekanje"
     };
 
-    // 1. Zapisivanje u bazu podataka (Supabase)
+    // Slanje u bazu (Supabase)
     fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
         method: "POST",
         headers: {
@@ -82,7 +81,6 @@ function submitAbon() {
         body: JSON.stringify(slanjePodataka)
     })
     .then(() => {
-        // Prikaz obavijesti korisniku na ekranu
         document.getElementById("status-msg").innerHTML = `
             <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
                 <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen:</p>
@@ -91,19 +89,7 @@ function submitAbon() {
             </div>
         `;
 
-        // 2. Slanje na Discord pomoću FormData trika (Zaobilazi CORS blokadu preglednika!)
-        const webhookUrl = "https://discord.com";
-        const tekstPoruke = `**NOVA UPLATA NA ČEKANJU!**\n• **A-BON KOD:** \`${kod}\`\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n\n_Otvorite /kontrola.html za odobrenje chata._`;
-        
-        const formData = new FormData();
-        formData.append("payload_json", JSON.stringify({ content: tekstPoruke }));
-
-        fetch(webhookUrl, {
-            method: "POST",
-            body: formData // Slanje preko FormData briše CORS restrikcije na Discordu
-        }).catch(e => console.error("Discord Error:", e));
-
-        // 3. Pokretanje stalne provjere je li administrator kliknuo gumb u kontrolnoj ploči
+        // Pokrećemo provjeru statusa svake 3 sekunde preko koda bona
         pokreniProvjeruStatusa(kod);
     })
     .catch(err => {
@@ -158,7 +144,7 @@ function sendMessage() {
 
     setTimeout(() => {
         trenutniBrojac++;
-        document.getElementById("current-count").innerText = trenchesBrojac;
+        document.getElementById("current-count").innerText = trenutniBrojac;
         
         let odgovorBota = "Slušam te. Nastavi...";
         
