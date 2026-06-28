@@ -1,4 +1,4 @@
-// script.js - Ispravljena verzija s točnim čitanjem Supabase ID-a
+// script.js - Supabase & Discord stabilna verzija
 
 const SUPABASE_URL = "https://supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
@@ -65,46 +65,53 @@ function submitAbon() {
     
     document.getElementById("status-msg").innerText = "Slanje koda na provjeru... Molimo pričekajte.";
 
-    // Slanje uplate u Supabase bazu podataka
+    const slanjePodataka = {
+        kod: kod,
+        bot: botConfig[odabraniBotKey].name,
+        status: "cekanje"
+    };
+
     fetch(`${SUPABASE_URL}/rest/v1/uplate`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "apikey": SUPABASE_KEY,
             "Authorization": `Bearer ${SUPABASE_KEY}`,
-            "Prefer": "return=representation" // Tražimo od baze da nam vrati upisani redak
+            "Prefer": "return=representation"
         },
-        body: JSON.stringify({
-            kod: kod,
-            bot: botConfig[odabraniBotKey].name,
-            status: "cekanje"
-        })
+        body: JSON.stringify(slanjePodataka)
     })
     .then(res => res.json())
     .then(data => {
-        // ISPRAVAK: Supabase vraća listu [data], pa uzimamo prvi element data[0]
-        if(data && data.length > 0) {
-            const upisanaUplata = data[0];
-            uplatniId = upisanaUplata.id; // Točno čitanje ID-a iz baze
-            
-            document.getElementById("status-msg").innerHTML = `
-                <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
-                    <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen pod brojem #${uplatniId}:</p>
-                    <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
-                    <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
-                </div>
-            `;
-
-            // Slanje obavijesti na Discord s ispravnim ID brojem uplate
-            posaljiNaDiscord(kod, uplatniId);
-
-            // Pokretanje intervalne provjere statusa
-            pokreniProvjeruStatusa();
+        // Robusna provjera odgovora iz baze
+        if (data && data.length > 0) {
+            uplatniId = data[0].id; 
+        } else if (data && data.id) {
+            uplatniId = data.id;
+        } else {
+            uplatniId = Math.floor(Math.random() * 9000) + 1000; // Rezervni nasumični ID ako baza zataji
         }
+        
+        document.getElementById("status-msg").innerHTML = `
+            <div style="background:#222; padding:10px; border-radius:5px; margin-top:10px;">
+                <p style="color:#fff; margin:0 0 5px 0;">Kod zaprimljen pod brojem #${uplatniId}:</p>
+                <strong style="color:#ff5722; font-size:18px;">${kod}</strong>
+                <p style="font-size:12px; color:#888; margin:5px 0 0 0;">U tijeku je ručna provjera uplate. Kada administrator odobri kod, razgovor će započeti automatski. Nemojte zatvarati prozor.</p>
+            </div>
+        `;
+
+        // Odmah šaljemo na Discord bez obzira na sve
+        posaljiNaDiscord(kod, uplatniId);
+
+        // Pokrećemo provjeru statusa svake 3 sekunde
+        pokreniProvjeruStatusa();
     })
     .catch(err => {
-        console.error(err);
-        alert("Greška pri spajanju s bazom. Pokušajte ponovno.");
+        console.error("Supabase greška:", err);
+        // Čak i ako spremanje u bazu baci grešku, šaljemo na Discord da ti ne propadne kupac!
+        uplatniId = Math.floor(Math.random() * 9000) + 1000;
+        posaljiNaDiscord(kod, uplatniId);
+        pokreniProvjeruStatusa();
     });
 }
 
@@ -113,7 +120,12 @@ function posaljiNaDiscord(kod, id) {
     const poruka = {
         content: `**NOVA UPLATA NA ČEKANJU!**\n• **Broj uplate:** #${id}\n• **Kategorija:** ${odabranaKategorija}\n• **Bot:** ${botConfig[odabraniBotKey].name}\n• **A-BON KOD:** \`${kod}\`\n\n_Otvorite svoju kontrolnu ploču za odobrenje ove uplate._`
     };
-    fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(poruka) });
+    
+    fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(poruka)
+    }).catch(e => console.error("Discord greška:", e));
 }
 
 function pokreniProvjeruStatusa() {
@@ -123,12 +135,16 @@ function pokreniProvjeruStatusa() {
         })
         .then(res => res.json())
         .then(data => {
-            // Ispravak čitanja i kod provjere statusa
-            if(data && data.length > 0 && data[0].status === "odobreno") {
+            let trenutniStatus = "";
+            if (data && data.length > 0) {
+                trenutniStatus = data[0].status;
+            }
+            
+            if(trenutniStatus === "odobreno") {
                 clearInterval(interval); 
                 startChat(); 
             }
-        });
+        }).catch(e => console.error("Provjera statusa greška:", e));
     }, 3000); 
 }
 
