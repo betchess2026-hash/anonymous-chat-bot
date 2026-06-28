@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontrolna Ploča - Admin</title>
+    <style>
+        body { background-color: #121212; color: #e0e0e0; font-family: sans-serif; padding: 20px; }
+        .panel { max-width: 600px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 10px; }
+        h2 { color: #ff5722; text-align: center; }
+        .kartica { background: #252525; padding: 15px; margin-bottom: 15px; border-radius: 5px; border-left: 5px solid #ffb300; }
+        .kartica.odobreno { border-left-color: #4caf50; opacity: 0.6; }
+        .kod { font-size: 18px; color: #fff; font-weight: bold; font-family: monospace; display: block; margin: 5px 0; }
+        .btn-odobri { background: #4caf50; color: white; border: none; padding: 10px 15px; border-radius: 3px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
+        .btn-odobri:hover { background: #45a049; }
+        .status-tekst { font-weight: bold; text-transform: uppercase; font-size: 12px; }
+        .cekanje { color: #ffb300; }
+        .odobreno-boja { color: #4caf50; }
+    </style>
+</head>
+<body>
+
+<div class="panel">
+    <h2>Kontrola Uplata</h2>
+    <p style="text-align:center; font-size:12px; color:#888;">Pregled i ručno odobravanje A-bon kodova u realnom vremenu.</p>
+    <button onclick="ucitajUplate()" style="width:100%; background:#2979ff; color:white; border:none; padding:12px; font-weight:bold; border-radius:5px; margin-bottom:20px; cursor:pointer;">Osvježi popise</button>
+    
+    <div id="lista-uplata">Povezivanje s bazom podataka...</div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrZ3pydGFzY2loa3Zhd3dpZXFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg3MjcsImV4cCI6MjA5ODI0NDcyN30.HlHoHsONDEZWwB1-DiD83vEJjOIWbKFMx-Nv8jBBpxo";
+
+function ucitajUplate() {
+    const lista = document.getElementById("lista-uplata");
+    
+    // Dohvaćanje zadnjih 20 uplata iz baze poredanih po vremenu
+    fetch(`${SUPABASE_URL}/rest/v1/uplate?order=created_at.desc&limit=20`, {
+        headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+        lista.innerHTML = "";
+        if (!data || data.length === 0) {
+            lista.innerHTML = "<p style='text-align:center; color:#888;'>Trenutno nema zabilježenih uplata.</p>";
+            return;
+        }
+
+        data.forEach(uplata => {
+            const div = document.createElement("div");
+            div.classList.add("kartica");
+            if(uplata.status === "odobreno") div.classList.add("odobreno");
+
+            let gumbHtml = uplata.status === "cekanje" 
+                ? `<button class="btn-odobri" onclick="odobriUplatu(${uplata.id})">ODOBRI CHAT</button>` 
+                : '';
+
+            div.innerHTML = `
+                <div>
+                    <span style="color:#888; font-size:12px;">Uplata #${uplata.id} • Bot: ${uplata.bot}</span>
+                    <span class="kod">${uplata.kod}</span>
+                    <span class="status-tekst ${uplata.status === 'cekanje' ? 'cekanje' : 'odobreno-boja'}">Status: ${uplata.status}</span>
+                </div>
+                ${gumbHtml}
+            `;
+            lista.appendChild(div);
+        });
+    })
+    .catch(err => {
+        lista.innerHTML = "<p style='color:#f44336;'>Greška pri učitavanju podataka.</p>";
+        console.error(err);
+    });
+}
+
+function odobriUplatu(id) {
+    if(!confirm(`Želite li odobriti sesiju #${id}?`)) return;
+
+    // Ažuriranje statusa u bazi na 'odobreno'
+    fetch(`${SUPABASE_URL}/rest/v1/uplate?id=eq.${id}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`
+        },
+        body: JSON.stringify({ status: "odobreno" })
+    })
+    .then(() => {
+        alert(`Sesija #${id} uspješno odobrena!`);
+        ucitajUplate(); // Osvježi listu na ekranu
+    })
+    .catch(err => {
+        alert("Došlo je do greške pri odobravanju.");
+        console.error(err);
+    });
+}
+
+// Inicijalno učitavanje pri otvaranju stranice
+ucitajUplate();
+</script>
+
+</body>
+</html>
