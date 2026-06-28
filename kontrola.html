@@ -35,7 +35,6 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 function ucitajUplate() {
     const lista = document.getElementById("lista-uplata");
     
-    // Dohvaćanje zadnjih 20 uplata iz baze poredanih po vremenu
     fetch(`${SUPABASE_URL}/rest/v1/uplate?order=created_at.desc&limit=20`, {
         headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
     })
@@ -76,7 +75,6 @@ function ucitajUplate() {
 function odobriUplatu(id) {
     if(!confirm(`Želite li odobriti sesiju #${id}?`)) return;
 
-    // Ažuriranje statusa u bazi na 'odobreno'
     fetch(`${SUPABASE_URL}/rest/v1/uplate?id=eq.${id}`, {
         method: "PATCH",
         headers: {
@@ -88,7 +86,7 @@ function odobriUplatu(id) {
     })
     .then(() => {
         alert(`Sesija #${id} uspješno odobrena!`);
-        ucitajUplate(); // Osvježi listu na ekranu
+        ucitajUplate(); 
     })
     .catch(err => {
         alert("Došlo je do greške pri odobravanju.");
@@ -96,7 +94,6 @@ function odobriUplatu(id) {
     });
 }
 
-// Inicijalno učitavanje pri otvaranju stranice
 ucitajUplate();
 </script>
 
